@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QTextEdit
 import socket
+import threading
 
 class MulticastServerUI(QWidget):
     def __init__(self):
@@ -8,6 +9,7 @@ class MulticastServerUI(QWidget):
 
         self.initUI()
         self.sock = None
+        self.listener_thread = None
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -29,6 +31,11 @@ class MulticastServerUI(QWidget):
         self.sendButton.clicked.connect(self.send_message)
         layout.addWidget(self.sendButton)
 
+        # Message Display for receiving client messages
+        self.messageDisplay = QTextEdit(self)
+        self.messageDisplay.setReadOnly(True)
+        layout.addWidget(self.messageDisplay)
+
         # Setting layout
         self.setLayout(layout)
         self.setWindowTitle("Multicast Server")
@@ -41,20 +48,45 @@ class MulticastServerUI(QWidget):
             print("Multicast group or message is empty.")
             return
 
-        # Create or reuse the socket
         if self.sock is None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
 
-        # Send the message
         try:
             self.sock.sendto(message.encode('utf-8'), (multicast_group, 5007))
             print(f"Sent message: {message} to group: {multicast_group}")
+            self.messageDisplay.append(f"Sent message: {message}")
         except Exception as e:
             print(f"Error sending message: {e}")
 
-        # Clear the input for the next message
         self.messageInput.clear()
+
+        if self.listener_thread is None:
+            self.listener_thread = threading.Thread(target=self.listen, daemon=True)
+            self.listener_thread.start()
+
+    def listen(self):
+        if self.sock is None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.bind(('', 5007))
+
+        while True:
+            try:
+                data, address = self.sock.recvfrom(1024)
+                message = data.decode('utf-8')
+
+                if ": " in message:
+                    sender_name, message_content = message.split(": ", 1)
+                    self.messageDisplay.append(f"Received message from {sender_name}: {message_content}")
+                    self.messageDisplay.append("Received message")  # Indicate reply received
+                else:
+                    self.messageDisplay.append(f"Received message: {message} from {address}")
+
+            except Exception as e:
+                self.messageDisplay.append(f"Error receiving message: {e}")
+                break
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
