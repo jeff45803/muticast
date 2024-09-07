@@ -45,7 +45,7 @@ class MulticastServerUI(QWidget):
         message = self.messageInput.toPlainText()
 
         if not multicast_group or not message:
-            print("Multicast group or message is empty.")
+            self.messageDisplay.append("Multicast group or message is empty.")
             return
 
         if self.sock is None:
@@ -54,10 +54,9 @@ class MulticastServerUI(QWidget):
 
         try:
             self.sock.sendto(message.encode('utf-8'), (multicast_group, 5007))
-            print(f"Sent message: {message} to group: {multicast_group}")
             self.messageDisplay.append(f"Sent message: {message}")
         except Exception as e:
-            print(f"Error sending message: {e}")
+            self.messageDisplay.append(f"Error sending message: {e}")
 
         self.messageInput.clear()
 
@@ -76,12 +75,16 @@ class MulticastServerUI(QWidget):
                 data, address = self.sock.recvfrom(1024)
                 message = data.decode('utf-8')
 
+                # Log the received message
+                self.messageDisplay.append(f"Received message: {message} from {address}")
+
+                # If the message is a client reply, acknowledge it
                 if ": " in message:
                     sender_name, message_content = message.split(": ", 1)
-                    self.messageDisplay.append(f"Received message from {sender_name}: {message_content}")
-                    self.messageDisplay.append("Received message")  # Indicate reply received
+                    self.messageDisplay.append(f"Received reply from {sender_name}: {message_content}")
+                    self.messageDisplay.append("Received reply")  # Indicate reply received
                 else:
-                    self.messageDisplay.append(f"Received message: {message} from {address}")
+                    self.messageDisplay.append(f"Received multicast message: {message}")
 
             except Exception as e:
                 self.messageDisplay.append(f"Error receiving message: {e}")

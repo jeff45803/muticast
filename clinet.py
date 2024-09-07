@@ -11,6 +11,7 @@ class MulticastClientUI(QWidget):
         self.initUI()
         self.sock = None
         self.joined_groups = {}  # 使用字典存储已加入的多播组
+        self.server_address = None  # 存储服务器的地址
 
     def initUI(self):
         layout = QVBoxLayout()
@@ -107,7 +108,8 @@ class MulticastClientUI(QWidget):
                 self.messageDisplay.append(f"Received message: {message} from {address}")
 
                 # Store the server address for reply
-                self.server_address = address
+                if not self.server_address:
+                    self.server_address = address
 
             except socket.error as e:
                 self.messageDisplay.append(f"Socket error: {e}")
@@ -125,13 +127,15 @@ class MulticastClientUI(QWidget):
         formatted_message = f"{name}: {message}"
 
         # 向服务器地址发送消息
-        if self.sock is not None and hasattr(self, 'server_address'):
+        if self.sock is not None and self.server_address:
             try:
                 self.sock.sendto(formatted_message.encode('utf-8'), self.server_address)
                 self.messageDisplay.append(f"Sent message to server: {formatted_message}")
                 self.sendInput.clear()
             except socket.error as e:
                 self.messageDisplay.append(f"Failed to send message: {e}")
+        else:
+            self.messageDisplay.append("Server address not available. Make sure you have received a message from the server.")
 
 
 if __name__ == "__main__":
